@@ -1,0 +1,44 @@
+# Avvio del solo database:        docker compose up -d
+# Avvio di database + backend:    docker compose --profile app up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: prenotazioni-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-prenotazioni}
+      POSTGRES_USER: ${DB_USERNAME:-smartcity}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smartcity}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Al primo avvio (volume vuoto) ripristina il dump in backup/
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./backup:/backup:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    profiles: ["app"]
+    build: .
+    container_name: prenotazioni-be
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-prenotazioni}
+      DB_USERNAME: ${DB_USERNAME:-smartcity}
+      DB_PASSWORD: ${DB_PASSWORD:-smartcity}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    ports:
+      - "8080:8080"
+
+volumes:
+  db-data:

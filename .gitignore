@@ -10,3 +10,4 @@ out/
 
 # Segreti locali
 src/main/resources/application-secrets.properties
+.env
